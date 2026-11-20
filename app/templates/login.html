@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block body %}
+<form method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input name="voter_id" placeholder="Voter ID" required>
+<input name="password" type="password" placeholder="Password" required>
+<button>Login</button>
+</form>
+{% endblock %}
