@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<h3>{{ election.title }}</h3>
+<form method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% for c in candidates %}
+<label style="display:block;margin:8px 0">
+<input type="radio" name="candidate_id" value="{{ c.id }}" style="width:auto" required> {{ c.name }}
+</label>
+{% endfor %}
+<button>Cast vote</button>
+</form>
+<p><a href="{{ url_for('dashboard') }}">Back</a></p>
+{% endblock %}

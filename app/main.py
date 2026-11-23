@@ -1,6 +1,7 @@
 import os
 import re
 import secrets
+import sqlite3
 
 import bcrypt
 from flask import (Flask, flash, redirect, render_template, request,
@@ -67,7 +68,7 @@ def login():
             session["user_id"] = row["id"]
             session["role"] = row["role"]
             return redirect(url_for("dashboard"))
-        flash("Invalid voter ID or password.")  # same message on purpose
+        flash("Invalid voter ID or password.")
     return render_template("login.html")
 
 
@@ -80,7 +81,63 @@ def dashboard():
             "SELECT full_name, voter_id, role FROM users WHERE id = ?",
             (session["user_id"],),
         ).fetchone()
-    return render_template("dashboard.html", user=row)
+        elections = conn.execute(
+            "SELECT id, title FROM elections WHERE is_open = 1"
+        ).fetchall()
+    return render_template("dashboard.html", user=row, elections=elections)
+
+
+@app.route("/vote/<int:election_id>", methods=["GET", "POST"])
+def vote(election_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    with get_conn() as conn:
+        election = conn.execute(
+            "SELECT id, title FROM elections WHERE id = ? AND is_open = 1",
+            (election_id,),
+        ).fetchone()
+        candidates = conn.execute(
+            "SELECT id, name FROM candidates WHERE election_id = ?",
+            (election_id,),
+        ).fetchall()
+    if not election:
+        flash("Election not found or closed.")
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        try:
+            candidate_id = int(request.form.get("candidate_id", ""))
+        except ValueError:
+            flash("Please choose a candidate.")
+            return render_template("vote.html", election=election,
+                                   candidates=candidates)
+        # candidate must belong to this election (server-side check)
+        if candidate_id not in [c["id"] for c in candidates]:
+            flash("Invalid candidate.")
+            return render_template("vote.html", election=election,
+                                   candidates=candidates)
+        conn = get_conn()
+        try:
+            with conn:  # one transaction: both inserts or neither
+                conn.execute(
+                    "INSERT INTO voter_status (election_id, user_id)"
+                    " VALUES (?, ?)",
+                    (election_id, session["user_id"]),
+                )
+                conn.execute(
+                    "INSERT INTO ballots (election_id, candidate_id)"
+                    " VALUES (?, ?)",
+                    (election_id, candidate_id),
+                )
+            flash("Vote recorded. Thank you.")
+        except sqlite3.IntegrityError:
+            flash("BLOCKED: you have already voted in this election.")
+        finally:
+            conn.close()
+        return redirect(url_for("dashboard"))
+
+    return render_template("vote.html", election=election,
+                           candidates=candidates)
 
 
 @app.route("/logout", methods=["POST"])

@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block body %}
 <p>Welcome, {{ user.full_name }} ({{ user.voter_id }}) - role: {{ user.role }}</p>
+<h3>Open elections</h3>
+{% for e in elections %}
+<p><a href="{{ url_for('vote', election_id=e.id) }}">{{ e.title }}</a></p>
+{% else %}
+<p>No open elections.</p>
+{% endfor %}
 <form method="post" action="{{ url_for('logout') }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <button>Logout</button>
