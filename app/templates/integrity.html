@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block body %}
+<h3>Audit log integrity</h3>
+<p>Records checked: {{ count }}</p>
+{% if ok %}
+<p style="color:#4ade80">Chain intact. No tampering detected.</p>
+{% else %}
+<p style="color:#f87171">TAMPERING DETECTED at record {{ bad_id }}.</p>
+{% endif %}
+<p><a href="{{ url_for('dashboard') }}">Back</a></p>
+{% endblock %}

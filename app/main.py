@@ -7,8 +7,8 @@ import bcrypt
 from flask import (Flask, flash, redirect, render_template, request,
                    session, url_for)
 from flask_wtf.csrf import CSRFProtect
-
 from app.db import get_conn, init_db
+from app.audit import log_event, verify_chain
 
 app = Flask(__name__)
 # Dev only: random key each start. Later move to .env
@@ -67,7 +67,9 @@ def login():
             session.clear()  # prevents session fixation
             session["user_id"] = row["id"]
             session["role"] = row["role"]
+            log_event("LOGIN_OK", f"user_id={row['id']}")
             return redirect(url_for("dashboard"))
+        log_event("LOGIN_FAIL", f"voter_id={voter_id[:20]}")
         flash("Invalid voter ID or password.")
     return render_template("login.html")
 
@@ -130,14 +132,26 @@ def vote(election_id):
                     (election_id, candidate_id),
                 )
             flash("Vote recorded. Thank you.")
+            log_event("VOTE_CAST", f"election={election_id}")
         except sqlite3.IntegrityError:
             flash("BLOCKED: you have already voted in this election.")
+            log_event("VOTE_BLOCKED", f"election={election_id} user_id={session['user_id']}")
         finally:
             conn.close()
         return redirect(url_for("dashboard"))
 
     return render_template("vote.html", election=election,
                            candidates=candidates)
+
+@app.route("/admin/integrity")
+def integrity():
+    if session.get("role") != "admin":
+        flash("Admins only.")
+        return redirect(url_for("dashboard"))
+    ok, bad_id = verify_chain()
+    with get_conn() as conn:
+        count = conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
+    return render_template("integrity.html", ok=ok, bad_id=bad_id, count=count)
 
 
 @app.route("/logout", methods=["POST"])

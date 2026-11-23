@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block body %}
 <p>Welcome, {{ user.full_name }} ({{ user.voter_id }}) - role: {{ user.role }}</p>
+{% if user.role == 'admin' %}<p><a href="{{ url_for('integrity') }}">Verify audit integrity</a></p>{% endif %}
 <h3>Open elections</h3>
 {% for e in elections %}
 <p><a href="{{ url_for('vote', election_id=e.id) }}">{{ e.title }}</a></p>
